@@ -1,10 +1,10 @@
 const mongodb = require('mongodb')
 const fs = require('fs')
 const async = require('async')
+const records1 = require('./m3-customer-address-data');
+const records2 = require('./m3-customer-data');
 
 const chunkSize = Number(process.argv[2])
-const file1 = 'm3-customer-address-data.json'
-const file2 = 'm3-customer-data.json'
 const url = 'mongodb://localhost:27017/edx-course-db'
 
 const mergeRecords = (record1, record2) => {
@@ -25,8 +25,8 @@ const mergeRecords = (record1, record2) => {
     }
 }
 
-const mergeSpan = (db, records1, records2, startSpan, endSpan, callback) => {
-    const customers = db.collection('customer')
+const mergeSpan = (db, startSpan, endSpan, callback) => {
+    const customers = db.collection('customers')
     const newCustomers = []
     for (let i = startSpan; i < Math.min(endSpan, records1.length); i++) {
         const data = mergeRecords(records1[i], records2[i])
@@ -42,35 +42,20 @@ const mergeSpan = (db, records1, records2, startSpan, endSpan, callback) => {
 }
 
 mongodb.MongoClient.connect(url, (error, db) => {
-    fs.readFile(file1, 'utf-8', (error1, data1_raw) => {
-        if (error1) {
-            console.error(error1)
+    // Prepare jobs
+    const jobs = []
+    for (let i = 0; i < records1.length; i += chunkSize) {
+        jobs.push((callback) => {
+            mergeSpan(db, i, i + chunkSize, callback)
+        })
+    }
+
+    // Execute jobs
+    async.parallel(jobs, (error, results) => {
+        if (error) {
+            console.error(error)
             return process.exit(1)
         }
-        fs.readFile(file2, 'utf-8', (error2, data2_raw) => {
-            if (error2) {
-                console.error(error2)
-                return process.exit(1)
-            }
-            const records1 = JSON.parse(data1_raw)
-            const records2 = JSON.parse(data2_raw)
-
-            // Prepare jobs
-            const jobs = []
-            for (let i = 0; i < records1.length; i += chunkSize) {
-                jobs.push((callback) => {
-                    mergeSpan(db, records1, records2, i, i + chunkSize, callback)
-                })
-            }
-
-            // Execute jobs
-            async.parallel(jobs, (error, results) => {
-                if (error) {
-                    console.error(error)
-                    return process.exit(1)
-                }
-                db.close()
-            })
-        })
+        db.close()
     })
 })
