@@ -32,6 +32,7 @@ const mergeSpan = (db, startSpan, endSpan, callback) => {
         const data = mergeRecords(records1[i], records2[i])
         newCustomers.push(data)
     }
+    console.log(newCustomers)
     customers.insert(newCustomers, (error, results) => {
         if (error) {
             console.error(error)
@@ -42,7 +43,7 @@ const mergeSpan = (db, startSpan, endSpan, callback) => {
 }
 
 mongodb.MongoClient.connect(url, {useNewUrlParser: true}, (error, client) => {
-    const db = client.db('edx-course-db');
+    var db = client.db('edx-course-db');
     // Prepare jobs
     const jobs = []
     for (let i = 0; i < records1.length; i += chunkSize) {
@@ -57,6 +58,6 @@ mongodb.MongoClient.connect(url, {useNewUrlParser: true}, (error, client) => {
             console.error(error)
             return process.exit(1)
         }
-        client.close()
+        db.close()
     })
 })
